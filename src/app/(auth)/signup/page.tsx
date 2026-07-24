@@ -1,10 +1,10 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useFormState } from 'react-dom';
 import Link from 'next/link';
 import { signUpWithPassword, type AuthState } from '@/lib/supabase/auth-actions';
 import { OAuthButtons } from '@/components/auth/oauth-buttons';
-import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/components/auth/submit-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 const initialState: AuthState = { error: null };
 
 export default function SignupPage() {
-  const [state, formAction, pending] = useActionState(signUpWithPassword, initialState);
+  const [state, formAction] = useFormState(signUpWithPassword, initialState);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -43,9 +43,7 @@ export default function SignupPage() {
               <Input id="password" name="password" type="password" required minLength={8} placeholder="Mínimo 8 caracteres" />
             </div>
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? 'Criando conta...' : 'Criar conta'}
-            </Button>
+            <SubmitButton loadingText="Criando conta...">Criar conta</SubmitButton>
           </form>
 
           <div className="relative">
