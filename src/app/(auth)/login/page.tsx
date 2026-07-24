@@ -1,11 +1,11 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useFormState } from 'react-dom';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { signInWithPassword, type AuthState } from '@/lib/supabase/auth-actions';
 import { OAuthButtons } from '@/components/auth/oauth-buttons';
-import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/components/auth/submit-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 const initialState: AuthState = { error: null };
 
 export default function LoginPage() {
-  const [state, formAction, pending] = useActionState(signInWithPassword, initialState);
+  const [state, formAction] = useFormState(signInWithPassword, initialState);
   const params = useSearchParams();
   const redirectTo = params.get('redirect') || '/dashboard';
   const message = params.get('message');
@@ -44,9 +44,7 @@ export default function LoginPage() {
               <Input id="password" name="password" type="password" required placeholder="••••••••" />
             </div>
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? 'Entrando...' : 'Entrar'}
-            </Button>
+            <SubmitButton loadingText="Entrando...">Entrar</SubmitButton>
           </form>
 
           <div className="relative">
