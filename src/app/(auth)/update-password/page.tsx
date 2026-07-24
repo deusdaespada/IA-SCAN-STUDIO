@@ -1,8 +1,8 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useFormState } from 'react-dom';
 import { updatePassword, type AuthState } from '@/lib/supabase/auth-actions';
-import { Button } from '@/components/ui/button';
+import { SubmitButton } from '@/components/auth/submit-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 const initialState: AuthState = { error: null };
 
 export default function UpdatePasswordPage() {
-  const [state, formAction, pending] = useActionState(updatePassword, initialState);
+  const [state, formAction] = useFormState(updatePassword, initialState);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -26,9 +26,7 @@ export default function UpdatePasswordPage() {
               <Input id="password" name="password" type="password" required minLength={8} />
             </div>
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? 'Salvando...' : 'Salvar nova senha'}
-            </Button>
+            <SubmitButton loadingText="Salvando...">Salvar nova senha</SubmitButton>
           </form>
         </CardContent>
       </Card>
