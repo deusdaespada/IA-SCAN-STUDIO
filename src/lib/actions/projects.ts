@@ -66,3 +66,17 @@ export async function createChapter(projectId: string, formData: FormData) {
   revalidatePath(`/projects/${projectId}`);
   return data.id as string;
 }
+
+export async function deleteChapter(projectId: string, chapterId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('chapters').delete().eq('id', chapterId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function deletePage(projectId: string, chapterId: string, pageId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('pages').delete().eq('id', pageId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/projects/${projectId}/chapters/${chapterId}`);
+}
