@@ -6,6 +6,8 @@ import { PipelineVisual } from '@/components/pipeline/pipeline-visual';
 import { Badge } from '@/components/ui/badge';
 import { StageActions } from '@/components/pipeline/stage-actions';
 import { ExportButton } from '@/components/pipeline/export-button';
+import { DeleteButton } from '@/components/ui/delete-button';
+import { deletePage } from '@/lib/actions/projects';
 
 const QC_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'secondary'> = {
   approved: 'success',
@@ -57,15 +59,24 @@ export default async function ChapterPipelinePage({
         <h2 className="mb-3 text-lg font-semibold">Páginas ({pages?.length ?? 0})</h2>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-6">
           {pages?.map((p) => (
-            <Link key={p.id} href={`/editor/${p.id}`} className="group">
-              <div className="relative aspect-[2/3] overflow-hidden rounded-lg border border-border bg-secondary">
-                <Image src={p.final_image_url || p.clean_image_url || p.original_image_url} alt={`Página ${p.page_number}`} fill className="object-cover transition-transform group-hover:scale-105" />
+            <div key={p.id} className="group relative">
+              <div className="absolute right-1.5 top-1.5 z-10 rounded-md bg-black/60 p-1 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+                <DeleteButton
+                  onDelete={() => deletePage(projectId, chapterId, p.id)}
+                  confirmMessage={`Excluir a página #${p.page_number}? Essa ação não pode ser desfeita.`}
+                  className="text-white hover:text-destructive"
+                />
               </div>
-              <div className="mt-1 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">#{p.page_number}</span>
-                <Badge variant={QC_VARIANT[p.qc_status]} className="text-[9px]">{p.qc_status}</Badge>
-              </div>
-            </Link>
+              <Link href={`/editor/${p.id}`}>
+                <div className="relative aspect-[2/3] overflow-hidden rounded-lg border border-border bg-secondary">
+                  <Image src={p.final_image_url || p.clean_image_url || p.original_image_url} alt={`Página ${p.page_number}`} fill className="object-cover transition-transform group-hover:scale-105" />
+                </div>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">#{p.page_number}</span>
+                  <Badge variant={QC_VARIANT[p.qc_status]} className="text-[9px]">{p.qc_status}</Badge>
+                </div>
+              </Link>
+            </div>
           ))}
         </div>
         {(!pages || pages.length === 0) && (
