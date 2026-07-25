@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, PlayCircle } from 'lucide-react';
 import { PIPELINE_STAGES, type PipelineStage } from '@/types/domain';
 
-const RUNNABLE_STAGES: PipelineStage[] = ['translation', 'review'];
+const RUNNABLE_STAGES: PipelineStage[] = ['ocr', 'translation', 'review'];
 
 export function StageActions({
   projectId,
