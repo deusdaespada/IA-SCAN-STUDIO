@@ -38,7 +38,32 @@ Responda APENAS com um JSON válido no formato exato:
 {"suggestion": "<texto sugerido ou null>", "reasoning": "<breve explicação da sugestão>"}`;
 }
 
-export function parseJsonResponse<T>(text: string): T {
+export function buildOcrPrompt(): string {
+  return `Você é um sistema de OCR especializado em mangás, manhwas e manhuas.
+
+Analise a imagem da página e detecte TODOS os elementos de texto:
+- Balões de fala (speech_bubble)
+- Caixas de texto/narração (text_box)
+- Onomatopeias e efeitos sonoros (sfx)
+- Títulos (title)
+- Legendas (caption)
+- Outros textos visíveis (other)
+
+Para cada elemento detectado, retorne a posição aproximada em PIXELS considerando a imagem original
+(coordenadas x, y do canto superior esquerdo do texto, largura e altura da área do texto),
+o texto exatamente como está escrito no idioma original, o tipo do elemento, e um valor de
+confiança entre 0 e 1.
+
+Ignore texto que faça parte da arte de fundo sem função narrativa (ex: logotipos de marcas fictícias
+na arte, texto decorativo irrelevante).
+
+Responda APENAS com um JSON válido, sem markdown, no formato exato:
+{"elements": [{"type": "speech_bubble", "bbox": {"x": 120, "y": 340, "width": 180, "height": 90}, "text": "texto original aqui", "confidence": 0.95}]}
+
+Se não houver nenhum texto na página, responda: {"elements": []}`;
+}
+
+
   // Remove possíveis blocos de código markdown (```json ... ```) que alguns modelos retornam
   const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
   try {
