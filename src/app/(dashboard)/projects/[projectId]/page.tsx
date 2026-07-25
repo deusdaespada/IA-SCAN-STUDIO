@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { UploadDialog } from '@/components/upload/upload-dialog';
 import { NewChapterDialog } from '@/components/projects/new-chapter-dialog';
+import { DeleteButton } from '@/components/ui/delete-button';
+import { deleteProject, deleteChapter } from '@/lib/actions/projects';
 import { PIPELINE_STAGES } from '@/types/domain';
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -32,8 +34,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </div>
           {project.description && <p className="mt-3 max-w-2xl text-sm text-muted-foreground">{project.description}</p>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <NewChapterDialog projectId={projectId} />
+          <DeleteButton
+            onDelete={() => deleteProject(projectId)}
+            confirmMessage={`Excluir o projeto "${project.name}"? Isso apaga todos os capítulos, páginas e traduções. Essa ação não pode ser desfeita.`}
+            redirectTo="/projects"
+            className="flex h-10 items-center gap-2 rounded-md border border-destructive/30 px-3 text-sm text-destructive hover:bg-destructive/10"
+          />
         </div>
       </div>
 
@@ -69,6 +77,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                   <Link href={`/projects/${projectId}/chapters/${c.id}`} className="text-sm text-primary hover:underline">
                     Abrir pipeline →
                   </Link>
+                  <DeleteButton
+                    onDelete={() => deleteChapter(projectId, c.id)}
+                    confirmMessage={`Excluir o Capítulo ${c.number}? Isso apaga todas as páginas e traduções desse capítulo. Essa ação não pode ser desfeita.`}
+                  />
                 </div>
               </div>
             );
