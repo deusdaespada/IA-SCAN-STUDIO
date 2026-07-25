@@ -1,8 +1,13 @@
+'use client';
+
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
+import { DeleteButton } from '@/components/ui/delete-button';
+import { deleteProject } from '@/lib/actions/projects';
 
 interface ProjectCardProps {
   project: {
+    id: string;
     name: string;
     cover_url: string | null;
     work_type: string;
@@ -14,7 +19,14 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project }: ProjectCardProps) {
   return (
-    <div className="group cursor-pointer">
+    <div className="group relative cursor-pointer">
+      <div className="absolute right-2 top-2 z-10 rounded-md bg-black/60 p-1.5 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+        <DeleteButton
+          onDelete={() => deleteProject(project.id)}
+          confirmMessage={`Excluir o projeto "${project.name}"? Isso apaga todos os capítulos, páginas e traduções. Essa ação não pode ser desfeita.`}
+          className="text-white hover:text-destructive"
+        />
+      </div>
       <div className="aspect-[2/3] overflow-hidden rounded-lg border border-border bg-secondary">
         {project.cover_url ? (
           <Image src={project.cover_url} alt={project.name} width={220} height={330} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
