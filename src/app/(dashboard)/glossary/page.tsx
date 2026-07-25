@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { GlossaryTable } from '@/components/projects/glossary-table';
+import { GlossaryTable, type Term } from '@/components/projects/glossary-table';
 
 export default async function GlossaryPage() {
   const supabase = await createClient();
@@ -16,7 +16,7 @@ export default async function GlossaryPage() {
         <h1 className="text-2xl font-bold">Glossário</h1>
         <p className="text-muted-foreground">Termos consistentes usados pela IA durante a tradução</p>
       </div>
-      <GlossaryTable projects={projects ?? []} terms={terms ?? []} />
+      <GlossaryTable projects={projects ?? []} terms={(terms ?? []) as unknown as Term[]} />
     </div>
   );
 }
