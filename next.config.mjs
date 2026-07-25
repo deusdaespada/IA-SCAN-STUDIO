@@ -7,6 +7,7 @@ const nextConfig = {
         hostname: '*.supabase.co',
       },
     ],
+    unoptimized: true,
   },
   experimental: {
     serverActions: {
