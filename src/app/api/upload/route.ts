@@ -93,14 +93,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Falha ao enviar página ${page.filename}: ${uploadError.message}` }, { status: 500 });
     }
 
-    const { data: publicUrlData } = supabase.storage.from('pages').getPublicUrl(storagePath);
+    const { data: signedUrlData, error: signError } = await supabase.storage
+      .from('pages')
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10); // válida por 10 anos
+
+    if (signError || !signedUrlData) {
+      return NextResponse.json({ error: `Falha ao gerar URL da página: ${signError?.message}` }, { status: 500 });
+    }
 
     const { data: pageRow, error: insertError } = await supabase
       .from('pages')
       .insert({
         chapter_id: chapterId,
         page_number: nextPageNumber,
-        original_image_url: publicUrlData.publicUrl,
+        original_image_url: signedUrlData.signedUrl,
         current_stage: 'upload',
       })
       .select('id, page_number')
