@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { processJob } from '@/lib/jobs/process-job';
 import type { PipelineStage } from '@/types/domain';
 
@@ -7,28 +7,36 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 /**
- * Este endpoint deve ser chamado por um cron job (Vercel Cron, Supabase Edge
- * Function agendada, ou serviço externo como QStash/Inngest) para drenar a fila
- * de `ai_jobs`. Protegido por um header de autorização simples baseado em
- * variável de ambiente — configure CRON_SECRET no seu provedor de deploy.
+ * GET é chamado pelo Vercel Cron automaticamente, autenticado por CRON_SECRET.
  */
-// O Vercel Cron chama rotas via GET com o header `authorization: Bearer $CRON_SECRET`
-// automaticamente. Reaproveitamos a mesma lógica do POST com os valores padrão.
 export async function GET(request: Request) {
-  return handleProcessJobs(request, { stages: ['ocr', 'translation', 'review'], batchSize: 10 });
-}
-
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
-  return handleProcessJobs(request, { stages: body.stages ?? ['ocr', 'translation', 'review'], batchSize: body.batchSize ?? 5 });
-}
-
-async function handleProcessJobs(request: Request, { stages, batchSize }: { stages: string[]; batchSize: number }) {
   const authHeader = request.headers.get('authorization');
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
+  return handleProcessJobs({ stages: ['ocr', 'translation', 'review'], batchSize: 10 });
+}
 
+/**
+ * POST é chamado pelos botões da interface (usuário logado). Autenticado pela
+ * sessão do Supabase, não pelo CRON_SECRET — o navegador nunca deve conhecer
+ * esse segredo.
+ */
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  return handleProcessJobs({ stages: body.stages ?? ['ocr', 'translation', 'review'], batchSize: body.batchSize ?? 5 });
+}
+
+async function handleProcessJobs({ stages, batchSize }: { stages: string[]; batchSize: number }) {
   const admin = createAdminClient();
 
   const results: { jobId: string; status: string; error?: string }[] = [];
