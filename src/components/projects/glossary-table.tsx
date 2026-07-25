@@ -9,7 +9,7 @@ import { Trash2 } from 'lucide-react';
 import { createGlossaryTerm, deleteGlossaryTerm } from '@/lib/actions/glossary';
 
 interface Project { id: string; name: string }
-interface Term {
+export interface Term {
   id: string;
   term_original: string;
   term_translated: string;
