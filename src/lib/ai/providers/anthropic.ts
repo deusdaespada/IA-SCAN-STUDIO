@@ -1,5 +1,6 @@
 import type { AiProviderClient, TranslateRequest, TranslateResult, ReviewRequest, ReviewResult, OcrRequest, OcrResult } from '../types';
-import { buildTranslationPrompt, buildReviewPrompt, parseJsonResponse } from '../prompts';
+import { buildTranslationPrompt, buildReviewPrompt, buildOcrPrompt, parseJsonResponse } from '../prompts';
+import { fetchImageAsBase64 } from '../fetch-image';
 
 export function createAnthropicClient(apiKey: string): AiProviderClient {
   const baseUrl = 'https://api.anthropic.com/v1/messages';
@@ -16,6 +17,46 @@ export function createAnthropicClient(apiKey: string): AiProviderClient {
         model,
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Anthropic API error (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    const text = data.content?.map((c: { text?: string }) => c.text || '').join('') ?? '';
+    const tokens = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
+    return { text, tokens };
+  }
+
+  async function callWithImage(
+    model: string,
+    prompt: string,
+    imageBase64: string,
+    imageMimeType: string,
+    maxTokens = 4096
+  ): Promise<{ text: string; tokens: number }> {
+    const res = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: imageMimeType, data: imageBase64 } },
+              { type: 'text', text: prompt },
+            ],
+          },
+        ],
       }),
     });
 
@@ -47,11 +88,12 @@ export function createAnthropicClient(apiKey: string): AiProviderClient {
       return { suggestion: parsed.suggestion, reasoning: parsed.reasoning, tokensUsed: tokens };
     },
 
-    async ocr(_req: OcrRequest, _model: string): Promise<OcrResult> {
-      // OCR via modelo de visão: requer envio da imagem como base64 (content type "image").
-      // Implementar quando a chave estiver configurada — estrutura de chamada de exemplo
-      // está documentada em /docs/ai-providers.md deste projeto.
-      throw new Error('OCR via Anthropic ainda não configurado. Adicione a lógica de visão em anthropic.ts');
+    async ocr(req: OcrRequest, model: string): Promise<OcrResult> {
+      const { base64, mimeType } = await fetchImageAsBase64(req.imageUrl);
+      const prompt = buildOcrPrompt();
+      const { text } = await callWithImage(model, prompt, base64, mimeType);
+      const parsed = parseJsonResponse<{ elements: OcrResult['elements'] }>(text);
+      return { elements: parsed.elements ?? [] };
     },
   };
 }

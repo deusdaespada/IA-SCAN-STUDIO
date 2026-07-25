@@ -1,14 +1,19 @@
 import type { AiProviderClient, TranslateRequest, TranslateResult, ReviewRequest, ReviewResult, OcrRequest, OcrResult } from '../types';
-import { buildTranslationPrompt, buildReviewPrompt, parseJsonResponse } from '../prompts';
+import { buildTranslationPrompt, buildReviewPrompt, buildOcrPrompt, parseJsonResponse } from '../prompts';
+import { fetchImageAsBase64 } from '../fetch-image';
 
 /**
  * DeepSeek e OpenRouter expõem uma API compatível com o formato de chat completions
  * da OpenAI, então compartilham a mesma implementação, variando apenas a base URL.
+ * OCR (visão) só é suportado quando o modelo escolhido no OpenRouter tiver capacidade
+ * multimodal (ex: "openai/gpt-4o", "google/gemini-2.0-flash-exp", "anthropic/claude-3.5-sonnet").
+ * DeepSeek não oferece modelos de visão publicamente até o momento.
  */
 function createOpenAiCompatibleClient(
   provider: 'deepseek' | 'openrouter',
   apiKey: string,
-  baseUrl: string
+  baseUrl: string,
+  supportsVision: boolean
 ): AiProviderClient {
   async function call(model: string, prompt: string): Promise<{ text: string; tokens: number }> {
     const res = await fetch(baseUrl, {
@@ -17,6 +22,35 @@ function createOpenAiCompatibleClient(
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`${provider} API error (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content ?? '';
+    const tokens = data.usage?.total_tokens ?? 0;
+    return { text, tokens };
+  }
+
+  async function callWithImage(model: string, prompt: string, imageBase64: string, imageMimeType: string): Promise<{ text: string; tokens: number }> {
+    const res = await fetch(baseUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: `data:${imageMimeType};base64,${imageBase64}` } },
+            ],
+          },
+        ],
       }),
     });
 
@@ -48,16 +82,23 @@ function createOpenAiCompatibleClient(
       return { suggestion: parsed.suggestion, reasoning: parsed.reasoning, tokensUsed: tokens };
     },
 
-    async ocr(_req: OcrRequest, _model: string): Promise<OcrResult> {
-      throw new Error(`OCR via ${provider} ainda não configurado.`);
+    async ocr(req: OcrRequest, model: string): Promise<OcrResult> {
+      if (!supportsVision) {
+        throw new Error(`${provider} não oferece modelos de visão para OCR. Use Anthropic, OpenAI ou Gemini, ou selecione um modelo multimodal no OpenRouter.`);
+      }
+      const { base64, mimeType } = await fetchImageAsBase64(req.imageUrl);
+      const prompt = buildOcrPrompt();
+      const { text } = await callWithImage(model, prompt, base64, mimeType);
+      const parsed = parseJsonResponse<{ elements: OcrResult['elements'] }>(text);
+      return { elements: parsed.elements ?? [] };
     },
   };
 }
 
 export function createDeepSeekClient(apiKey: string): AiProviderClient {
-  return createOpenAiCompatibleClient('deepseek', apiKey, 'https://api.deepseek.com/chat/completions');
+  return createOpenAiCompatibleClient('deepseek', apiKey, 'https://api.deepseek.com/chat/completions', false);
 }
 
 export function createOpenRouterClient(apiKey: string): AiProviderClient {
-  return createOpenAiCompatibleClient('openrouter', apiKey, 'https://openrouter.ai/api/v1/chat/completions');
+  return createOpenAiCompatibleClient('openrouter', apiKey, 'https://openrouter.ai/api/v1/chat/completions', true);
 }
