@@ -15,12 +15,12 @@ export const maxDuration = 300;
 // O Vercel Cron chama rotas via GET com o header `authorization: Bearer $CRON_SECRET`
 // automaticamente. Reaproveitamos a mesma lógica do POST com os valores padrão.
 export async function GET(request: Request) {
-  return handleProcessJobs(request, { stages: ['translation', 'review'], batchSize: 10 });
+  return handleProcessJobs(request, { stages: ['ocr', 'translation', 'review'], batchSize: 10 });
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  return handleProcessJobs(request, { stages: body.stages ?? ['translation', 'review'], batchSize: body.batchSize ?? 5 });
+  return handleProcessJobs(request, { stages: body.stages ?? ['ocr', 'translation', 'review'], batchSize: body.batchSize ?? 5 });
 }
 
 async function handleProcessJobs(request: Request, { stages, batchSize }: { stages: string[]; batchSize: number }) {
