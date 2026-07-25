@@ -10,6 +10,8 @@ export async function processJob(job: AiJob, ownerId: string) {
   const admin = createAdminClient();
 
   switch (job.stage) {
+    case 'ocr':
+      return processOcrJob(job, ownerId, admin);
     case 'translation':
       return processTranslationJob(job, ownerId, admin);
     case 'review':
@@ -17,6 +19,61 @@ export async function processJob(job: AiJob, ownerId: string) {
     default:
       throw new Error(`Processamento automático para a etapa "${job.stage}" ainda não implementado neste worker. Implemente o handler em src/lib/jobs/process-job.ts.`);
   }
+}
+
+async function processOcrJob(job: AiJob, ownerId: string, admin: ReturnType<typeof createAdminClient>) {
+  if (!job.page_id) throw new Error('Job de OCR sem page_id');
+
+  const { data: page } = await admin.from('pages').select('id, original_image_url').eq('id', job.page_id).single();
+  if (!page) throw new Error('Página não encontrada');
+
+  const provider = job.ai_provider ?? 'anthropic';
+  const model = job.ai_model ?? 'claude-sonnet-4-6';
+  const client = await resolveAiClientForUser(ownerId, provider);
+
+  const result = await client.ocr({ imageUrl: page.original_image_url }, model);
+
+  if (result.elements.length > 0) {
+    const rows = result.elements.map((el, index) => ({
+      page_id: page.id,
+      element_type: el.type,
+      bbox_x: el.bbox.x,
+      bbox_y: el.bbox.y,
+      bbox_width: el.bbox.width,
+      bbox_height: el.bbox.height,
+      original_text: el.text,
+      confidence: el.confidence,
+      order_index: index,
+    }));
+
+    const { error: insertError } = await admin.from('ocr_results').insert(rows);
+    if (insertError) throw new Error(insertError.message);
+  }
+
+  await admin.from('ai_usage').insert({
+    user_id: ownerId,
+    project_id: job.project_id,
+    ai_provider: provider,
+    ai_model: model,
+    operation: 'ocr',
+    input_tokens: 0,
+    output_tokens: 0,
+  });
+
+  await admin.from('pages').update({ current_stage: 'translation' }).eq('id', job.page_id);
+
+  // Encadeia automaticamente o próximo job da pipeline: tradução
+  await admin.from('ai_jobs').insert({
+    project_id: job.project_id,
+    chapter_id: job.chapter_id,
+    page_id: job.page_id,
+    stage: 'translation',
+    status: 'queued',
+    ai_provider: provider,
+    ai_model: model,
+  });
+
+  return { elementsDetected: result.elements.length };
 }
 
 async function processTranslationJob(job: AiJob, ownerId: string, admin: ReturnType<typeof createAdminClient>) {
@@ -78,6 +135,16 @@ async function processTranslationJob(job: AiJob, ownerId: string, admin: ReturnT
 
   await admin.rpc('increment_ai_tokens_used', { p_user_id: ownerId, p_tokens: result.tokensUsed });
   await admin.from('pages').update({ current_stage: 'review' }).eq('id', job.page_id);
+
+  await admin.from('ai_jobs').insert({
+    project_id: job.project_id,
+    chapter_id: job.chapter_id,
+    page_id: job.page_id,
+    stage: 'review',
+    status: 'queued',
+    ai_provider: provider,
+    ai_model: model,
+  });
 
   return { translatedCount: result.translations.length, tokensUsed: result.tokensUsed };
 }
